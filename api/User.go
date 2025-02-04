@@ -7,6 +7,7 @@ import (
 	"errors"
 	"first-project-go/authorizer"
 	"first-project-go/model"
+	notification2 "first-project-go/notification"
 	"first-project-go/utility"
 	"gorm.io/gorm"
 	"log"
@@ -90,6 +91,14 @@ func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 		log.Printf("Error Getting Account Information: %v", err)
 	}
+	notification, err := notification2.NewNotificationService()
+	token = r.Header.Get("notif")
+	if token == "" {
+		http.Error(w, "Missing notification token in header", http.StatusBadRequest)
+		return
+	}
+
+	notification.SendNonRequestNotification(token, "Welcome!", "Have a nice day "+user.Username)
 
 	utility.SetJSONHeader(w)
 

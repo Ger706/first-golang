@@ -4,8 +4,6 @@ import (
 	"first-project-go/api"
 	"first-project-go/route"
 	"github.com/joho/godotenv"
-	"log"
-	"net/http"
 	"os"
 )
 
@@ -21,9 +19,4 @@ func main() {
 
 	server := api.NewServer(listenAddr, dbUser, dbPassword, dbName)
 	route.OpenRoute(server)
-
-	log.Printf("Server is listening on %s", listenAddr)
-	if err := http.ListenAndServe(listenAddr, nil); err != nil {
-		log.Fatalf("Server failed to start: %v", err)
-	}
 }
