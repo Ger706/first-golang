@@ -70,36 +70,50 @@ func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Body decode error: %v", err)
 		return
 	}
+
 	sha := sha256.New()
 	sha.Write([]byte(userData.Password))
 	hashedPassword := sha.Sum(nil)
 	hashedPasswordHex := hex.EncodeToString(hashedPassword)
-	var user = User{}
-	user = User{}
+
+	var user User
 	err := s.DB.Select("user_id, username").
 		Where("password = ? AND username = ?", hashedPasswordHex, userData.Username).
 		First(&user).Error
-	token, err := authorizer.CreateToken(&jwt{Username: user.Username})
-	user.Token = token
+
 	if err == nil {
+		token, err := authorizer.CreateToken(&jwt{Username: user.Username})
+		if err != nil {
+			http.Error(w, "Failed to create token", http.StatusInternalServerError)
+			log.Printf("Token creation error: %v", err)
+			return
+		}
+		user.Token = token
+
 		if err := json.NewEncoder(w).Encode(user); err != nil {
 			http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 			log.Printf("JSON encode error: %v", err)
 			return
 		}
+
+		notification, err := notification2.NewNotificationService()
+		if err != nil {
+			log.Printf("Notification service error: %v", err)
+		} else {
+			token := r.Header.Get("notif")
+			if token == "" {
+				http.Error(w, "Missing notification token in header", http.StatusBadRequest)
+				return
+			}
+			notification.SendNonRequestNotification(token, "Welcome!", "Have a nice day "+user.Username)
+		}
+
+		utility.SetJSONHeader(w)
+		return
 	} else {
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		http.Error(w, "Invalid username or password", http.StatusUnauthorized)
 		log.Printf("Error Getting Account Information: %v", err)
-	}
-	notification, err := notification2.NewNotificationService()
-	token = r.Header.Get("notif")
-	if token == "" {
-		http.Error(w, "Missing notification token in header", http.StatusBadRequest)
+		utility.SetJSONHeader(w)
 		return
 	}
-
-	notification.SendNonRequestNotification(token, "Welcome!", "Have a nice day "+user.Username)
-
-	utility.SetJSONHeader(w)
-
 }
